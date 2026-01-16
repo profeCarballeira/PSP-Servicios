@@ -1,8 +1,6 @@
 import socket
 from tkinter import *
 
-jugadaAcutal = 0
-
 def conectarServidor():
   global client
   client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -15,14 +13,15 @@ def inscribir ():
   lblInfo["text"]= client.recv(1024).decode()
 
 def enviarJugada(jugada):  
-  global client
-  client.sendall(bytes("#JUGADA#"+jugada+"#",'UTF-8'))
-  data=  client.recv(1024).decode()   
-  lblInfo["text"]= PendingDeprecationWarning
-  subdatos =  data.split("#")
-  jugadaAcutal = subdatos[2]
+  global client, ronda
+  client.sendall(bytes("#JUGADA#" + jugada + "#", 'UTF-8'))
+  respuesta = client.recv(1024).decode()
+  lblInfo["text"] = respuesta
+  # Guardar el valor de ronda si la respuesta es #OK#ronda#
+  if respuesta.startswith("#OK#"):
+      ronda = respuesta.split("#")[-2]
+      iniciarTemporizador()
 
-  
 def consultaPuntos():
   global client
   client.sendall(bytes("#PUNTUACION#",'UTF-8'))
@@ -32,20 +31,27 @@ def resultadoJugada(numJ):
   global client
   client.sendall(bytes("#RESULTADOJUGADA#"+numJ+"#",'UTF-8'))
   lblInfo["text"]= client.recv(1024).decode()   
+  
+def enviarResultado():
+    global client, ronda
+    try:
+        if ronda:
+            client.sendall(bytes(f"#RESULTADOJUGADA#{ronda}#", 'UTF-8'))
+            respuesta = client.recv(1024).decode()
+            if respuesta.startswith("#OK#"):
+              lblInfo["text"] = respuesta
+        fPPT.after(1000, enviarResultado)  # Repetir cada segundo
+    except Exception as e:
+        lblInfo["text"] = f"Error en temporizador: {str(e)}"
 
-def start_timer(numJ,r):
-  global client  
-  if (client != None):
-    client.sendall(bytes("#RESULTADOJUGADA#"+numJ+"#",'UTF-8'))
-    data=  client.recv(1024).decode()   
-    subdatos =  data.split("#")
-    lblInfo["text"]= subdatos[2]
-  r.after(5000, start_timer)
+def iniciarTemporizador():
+    enviarResultado()
   
 #if __name__ == '__main__':
 SERVER = "127.0.0.1"
 PORT = 2000
 client = None
+ronda = None
 informacion =""
 fPPT = Tk() 
 fPPT.title("Piedra-Papel-Tijera")
@@ -71,6 +77,4 @@ btnResultado = Button(fPPT, text = 'Resultado', command = lambda: resultadoJugad
 btnResultado.place(x = 80,y = 200)
 btnPuntos = Button(fPPT, text = 'Puntuación', command =consultaPuntos)
 btnPuntos.place(x = 150,y = 200)
-
-start_timer(jugadaAcutal,fPPT)
 fPPT.mainloop()
